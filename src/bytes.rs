@@ -117,11 +117,10 @@ pub unsafe trait ByteValued: Copy + Default + Send + Sync {
     /// reference to `self`; this trivially fulfills `VolatileSlice::new`'s requirement
     /// that all accesses to `self` use volatile accesses (because there can
     /// be no other accesses).
-    fn as_bytes(&mut self) -> VolatileSlice {
-        unsafe {
-            // This is safe because the lifetime is the same as self
-            VolatileSlice::new(self as *mut Self as usize as *mut _, size_of::<Self>())
-        }
+    fn as_bytes<'a>(&'a mut self) -> VolatileSlice {
+        // This is safe because the lifetime is the same as self
+        let reference = unsafe { std::mem::transmute::<_, &'a mut u8>(self) };
+        VolatileSlice::new(reference, size_of::<Self>())
     }
 }
 
@@ -527,5 +526,13 @@ pub(crate) mod tests {
         s.as_bytes().copy_from(&a);
         assert_eq!(s.a, 0);
         assert_eq!(s.b, 0x0101_0101);
+    }
+
+    #[test]
+    fn life_time() {
+        let mut a = [1u16, 2, 3];
+        let s = { a.as_bytes() };
+        assert_eq!(unsafe { *s.as_ptr().add(4) }, 3);
+        assert_eq!(unsafe { *s.as_ptr().add(3) }, 0);
     }
 }

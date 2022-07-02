@@ -247,14 +247,11 @@ impl<'a> VolatileMemory for &'a mut [u8] {
 
     fn get_slice(&self, offset: usize, count: usize) -> Result<VolatileSlice<()>> {
         let _ = self.compute_end_offset(offset, count)?;
-        unsafe {
-            // This is safe because the pointer is range-checked by compute_end_offset, and
-            // the lifetime is the same as the original slice.
-            Ok(VolatileSlice::new(
-                (self.as_ptr() as usize + offset) as *mut _,
-                count,
-            ))
-        }
+        // This is safe because the pointer is range-checked by compute_end_offset, and
+        // the lifetime is the same as the original slice.
+        //(self.as_ptr() as usize + offset) as *mut _,
+        let a = unsafe { std::mem::transmute::<_, &'a mut u8>(self.as_ptr()) };
+        Ok(VolatileSlice::new(a, count))
     }
 }
 
@@ -279,8 +276,8 @@ impl<'a> VolatileSlice<'a, ()> {
     /// and is available for the duration of the lifetime of the new `VolatileSlice`. The caller
     /// must also guarantee that all other users of the given chunk of memory are using volatile
     /// accesses.
-    pub unsafe fn new(addr: *mut u8, size: usize) -> VolatileSlice<'a> {
-        Self::with_bitmap(addr, size, ())
+    pub fn new(addr: &'a mut u8, size: usize) -> VolatileSlice<'a> {
+        unsafe { Self::with_bitmap(addr, size, ()) }
     }
 }
 
